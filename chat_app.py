@@ -265,99 +265,57 @@ def sidebar_and_documentChooser():
 
     with tab_open_vectorstore:
         st.write("Please select a Vectorstore:")
-        import tkinter as tk
-        from tkinter import filedialog
 
-        clicked = st.button("Vectorstore chooser")
-        root = tk.Tk()
-        root.withdraw()
-        root.wm_attributes("-topmost", 1)  # Make dialog appear on top of other windows
+        # Replace tkinter with a Streamlit text_input
+        st.session_state.selected_vectorstore_name = st.text_input(
+            "Enter the path or name of an existing Vectorstore"
+        )
 
-        st.session_state.selected_vectorstore_name = ""
+        if st.button("Load Vectorstore"):
+            selected_vectorstore_path = st.session_state.selected_vectorstore_name
 
-        if clicked:
-            # Check inputs
-            error_messages = []
-            if (
-                not st.session_state.openai_api_key
-                and not st.session_state.google_api_key
-                and not st.session_state.hf_api_key
-            ):
-                error_messages.append(
-                    f"insert your {st.session_state.LLM_provider} API key"
-                )
-
-            if (
-                st.session_state.retriever_type == list_retriever_types[0]
-                and not st.session_state.cohere_api_key
-            ):
-                error_messages.append(f"insert your Cohere API key")
-
-            if len(error_messages) == 1:
-                st.session_state.error_message = "Please " + error_messages[0] + "."
-                st.warning(st.session_state.error_message)
-            elif len(error_messages) > 1:
-                st.session_state.error_message = (
-                    "Please "
-                    + ", ".join(error_messages[:-1])
-                    + ", and "
-                    + error_messages[-1]
-                    + "."
-                )
-                st.warning(st.session_state.error_message)
-
-            # if API keys are inserted, start loading Chroma index, then create retriever and ConversationalRetrievalChain
+            if not selected_vectorstore_path:
+                st.info("Please enter a valid path.")
             else:
-                selected_vectorstore_path = filedialog.askdirectory(master=root)
-
-                if selected_vectorstore_path == "":
-                    st.info("Please select a valid path.")
-
-                else:
-                    with st.spinner("Loading vectorstore..."):
-                        st.session_state.selected_vectorstore_name = (
-                            selected_vectorstore_path.split("/")[-1]
+                with st.spinner("Loading vectorstore..."):
+                    try:
+                        embeddings = select_embeddings_model()
+                        st.session_state.vector_store = Chroma(
+                            embedding_function=embeddings,
+                            persist_directory=selected_vectorstore_path,
                         )
-                        try:
-                            # 1. load Chroma vectorestore
-                            embeddings = select_embeddings_model()
-                            st.session_state.vector_store = Chroma(
-                                embedding_function=embeddings,
-                                persist_directory=selected_vectorstore_path,
-                            )
 
-                            # 2. create retriever
-                            st.session_state.retriever = create_retriever(
-                                vector_store=st.session_state.vector_store,
-                                embeddings=embeddings,
-                                retriever_type=st.session_state.retriever_type,
-                                base_retriever_search_type="similarity",
-                                base_retriever_k=16,
-                                compression_retriever_k=20,
-                                cohere_api_key=st.session_state.cohere_api_key,
-                                cohere_model="rerank-multilingual-v2.0",
-                                cohere_top_n=10,
-                            )
+                        # Create retriever
+                        st.session_state.retriever = create_retriever(
+                            vector_store=st.session_state.vector_store,
+                            embeddings=embeddings,
+                            retriever_type=st.session_state.retriever_type,
+                            base_retriever_search_type="similarity",
+                            base_retriever_k=16,
+                            compression_retriever_k=20,
+                            cohere_api_key=st.session_state.cohere_api_key,
+                            cohere_model="rerank-multilingual-v2.0",
+                            cohere_top_n=10,
+                        )
 
-                            # 3. create memory and ConversationalRetrievalChain
-                            (
-                                st.session_state.chain,
-                                st.session_state.memory,
-                            ) = create_ConversationalRetrievalChain(
-                                retriever=st.session_state.retriever,
-                                chain_type="stuff",
-                                language=st.session_state.assistant_language,
-                            )
+                        # Create memory + chain
+                        (
+                            st.session_state.chain,
+                            st.session_state.memory,
+                        ) = create_ConversationalRetrievalChain(
+                            retriever=st.session_state.retriever,
+                            chain_type="stuff",
+                            language=st.session_state.assistant_language,
+                        )
 
-                            # 4. clear chat_history
-                            clear_chat_history()
+                        clear_chat_history()
+                        st.success(
+                            f"**{st.session_state.selected_vectorstore_name}** loaded successfully."
+                        )
 
-                            st.info(
-                                f"**{st.session_state.selected_vectorstore_name}** is loaded successfully."
-                            )
+                    except Exception as e:
+                        st.error(f"Error loading vectorstore: {e}")
 
-                        except Exception as e:
-                            st.error(e)
 
 
 
