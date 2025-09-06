@@ -4,3 +4,4 @@ langchain-google-genai
 streamlit
 chromadb
 langchain-community
+openai

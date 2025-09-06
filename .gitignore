@@ -1,0 +1,51 @@
+# Python virtual environment
+datawhisper_venv/
+data_venv/
+venv/
+env/
+.env/
+.env
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Vector stores and data
+data/vector_stores/*
+data/tmp/*
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables and API keys
+.env
+*.env
+config.ini
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Logs
+*.log
+logs/
+
+# Local development settings
+*.local
+local_settings.py
+instance.py

@@ -1,6 +1,12 @@
 import warnings
 import os, glob
+import os
+import glob
+import warnings
+import streamlit as st
 from pathlib import Path
+from tkinter import filedialog
+import tkinter as tk
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -8,6 +14,7 @@ from langchain.prompts import PromptTemplate, ChatPromptTemplate
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory, ConversationSummaryBufferMemory
 from langchain.schema import format_document
+from dotenv import load_dotenv
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -52,6 +59,10 @@ from langchain_community.llms import HuggingFaceHub
 # Import streamlit
 import streamlit as st
 
+load_dotenv()
+
+api_key = os.getenv("openai_api_key")
+
 
 list_LLM_providers = [
     ":rainbow[**OpenAI**]",
@@ -88,7 +99,7 @@ st.set_page_config(page_title="Chat With Your Data")
 st.title("🤖 DataWhisper chatbot")
 
 # API keys
-st.session_state.openai_api_key = ""
+st.session_state.openai_api_key = api_key
 st.session_state.google_api_key = ""
 st.session_state.cohere_api_key = ""
 st.session_state.hf_api_key = ""
@@ -97,58 +108,58 @@ st.session_state.hf_api_key = ""
 def expander_model_parameters(
     LLM_provider="OpenAI",
     text_input_API_key="OpenAI API Key - [Get an API key](https://platform.openai.com/account/api-keys)",
-    list_models=["gpt-3.5-turbo-0125", "gpt-3.5-turbo", "gpt-4-turbo-preview"],
+    list_models=["gpt-4.1", "gpt-4.1", "gpt-4-turbo-preview"],
 ):
     """Add a text_input (for API key) and a streamlit expander containing models and parameters."""
     st.session_state.LLM_provider = LLM_provider
 
-    if LLM_provider == "OpenAI":
+    if LLM_provider == ":rainbow[**OpenAI**]":
         st.session_state.openai_api_key = st.text_input(
             text_input_API_key,
             type="password",
-            placeholder="insert your API key",
+            key="openai_api_key",
+            value=st.session_state.get("openai_api_key", ""),
         )
-        st.session_state.google_api_key = ""
-        st.session_state.hf_api_key = ""
 
-    if LLM_provider == "Google":
+    if LLM_provider == "**Google Generative AI**":
         st.session_state.google_api_key = st.text_input(
-            text_input_API_key,
+            "Google API Key - [Get an API key](https://makersuite.google.com/app/apikey)",
             type="password",
-            placeholder="insert your API key",
+            key="google_api_key",
+            value=st.session_state.get("google_api_key", ""),
         )
-        st.session_state.openai_api_key = ""
-        st.session_state.hf_api_key = ""
 
-    if LLM_provider == "HuggingFace":
+    if LLM_provider == ":hugging_face: **HuggingFace**":
         st.session_state.hf_api_key = st.text_input(
-            text_input_API_key,
+            "HuggingFace API Key - [Get an API key](https://huggingface.co/settings/tokens)",
             type="password",
-            placeholder="insert your API key",
+            key="hf_api_key",
+            value=st.session_state.get("hf_api_key", ""),
         )
-        st.session_state.openai_api_key = ""
-        st.session_state.google_api_key = ""
 
     with st.expander("**Models and parameters**"):
-        st.session_state.selected_model = st.selectbox(
-            f"Choose {LLM_provider} model", list_models
+        st.selectbox(
+            "Model", list_models, key="selected_model"
         )
-
-        # model parameters
-        st.session_state.temperature = st.slider(
-            "temperature",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.5,
-            step=0.1,
-        )
-        st.session_state.top_p = st.slider(
-            "top_p",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.95,
-            step=0.05,
-        )
+        col1, col2 = st.columns(2)
+        with col1:
+            st.slider(
+                "Temperature",
+                min_value=0.0,
+                max_value=1.0,
+                value=0.7,
+                step=0.1,
+                key="temperature",
+            )
+        with col2:
+            st.slider(
+                "Top P",
+                min_value=0.0,
+                max_value=1.0,
+                value=0.95,
+                step=0.05,
+                key="top_p",
+            )
 
 
 def sidebar_and_documentChooser():
@@ -177,8 +188,8 @@ def sidebar_and_documentChooser():
                 LLM_provider="OpenAI",
                 text_input_API_key="OpenAI API Key - [Get an API key](https://platform.openai.com/account/api-keys)",
                 list_models=[
-                    "gpt-3.5-turbo-0125",
-                    "gpt-3.5-turbo",
+                    "gpt-4.1",
+                    "gpt-4.1",
                     "gpt-4-turbo-preview",
                 ],
             )
@@ -187,7 +198,7 @@ def sidebar_and_documentChooser():
             expander_model_parameters(
                 LLM_provider="Google",
                 text_input_API_key="Google API Key - [Get an API key](https://makersuite.google.com/app/apikey)",
-                list_models=["gemini-pro"],
+                list_models=["gemini-2.5-flash"],
             )
         if llm_chooser == list_LLM_providers[2]:
             expander_model_parameters(
@@ -204,8 +215,8 @@ def sidebar_and_documentChooser():
         st.divider()
         st.subheader("Retrievers")
         retrievers = list_retriever_types
-        if st.session_state.selected_model == "gpt-3.5-turbo":
-            # for "gpt-3.5-turbo", we will not use the vectorstore backed retriever
+        if st.session_state.selected_model == "gpt-4.1":
+            # for "gpt-4.1", we will not use the vectorstore backed retriever
             # there is a high risk of exceeding the max tokens limit (4096).
             retrievers = list_retriever_types[:-1]
 
@@ -350,11 +361,21 @@ def sidebar_and_documentChooser():
 
 
 
-def delte_temp_files():
+def save_uploaded_files():
+    """Save uploaded files to the temporary directory"""
+    for uploaded_file in st.session_state.uploaded_file_list:
+        file_path = os.path.join(TMP_DIR.as_posix(), uploaded_file.name)
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+
+def delete_temp_files():
     """delete files from the './data/tmp' folder"""
     files = glob.glob(TMP_DIR.as_posix() + "/*")
     for f in files:
         try:
+            os.remove(f)
+        except Exception as e:
+            st.error(f"Error deleting {f}: {str(e)}")
             os.remove(f)
         except:
             pass
@@ -404,19 +425,29 @@ def split_documents_to_chunks(documents):
 
 def select_embeddings_model():
     """Select embeddings models: OpenAIEmbeddings or GoogleGenerativeAIEmbeddings."""
-    if st.session_state.LLM_provider == "OpenAI":
-        embeddings = OpenAIEmbeddings(api_key=st.session_state.openai_api_key)
+    embeddings = None
+    
+    if st.session_state.LLM_provider == ":rainbow[**OpenAI**]":
+        embeddings = OpenAIEmbeddings(
+            openai_api_key=st.session_state.openai_api_key,
+            model="text-embedding-ada-002"
+        )
 
-    if st.session_state.LLM_provider == "Google":
+    if st.session_state.LLM_provider == "**Google Generative AI**":
         embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001", google_api_key=st.session_state.google_api_key
+            google_api_key=st.session_state.google_api_key,
+            model="models/embedding-001"
         )
 
-    if st.session_state.LLM_provider == "HuggingFace":
+    if st.session_state.LLM_provider == ":hugging_face: **HuggingFace**":
         embeddings = HuggingFaceInferenceAPIEmbeddings(
-            api_key=st.session_state.hf_api_key, model_name="thenlper/gte-large"
+            api_key=st.session_state.hf_api_key,
+            model_name="sentence-transformers/all-mpnet-base-v2"
         )
 
+    if embeddings is None:
+        st.error("Please select a valid LLM provider and provide an API key.")
+        
     return embeddings
 
 
@@ -586,6 +617,91 @@ def chain_RAG_blocks():
     - 3. Converstaional Retreival chain.
     """
     with st.spinner("Creating vectorstore..."):
+        try:
+            # 0. Check for errors
+            error_messages = []
+            if not st.session_state.vector_store_name:
+                error_messages.append("provide a valid vectorstore name")
+            if not st.session_state.uploaded_file_list:
+                error_messages.append("upload at least one document")
+            if not st.session_state.openai_api_key and not st.session_state.google_api_key and not st.session_state.hf_api_key:
+                error_messages.append(f"insert your {st.session_state.LLM_provider} API key")
+            if (
+                st.session_state.retriever_type == list_retriever_types[0]
+                and not st.session_state.cohere_api_key
+            ):
+                error_messages.append(f"insert your Cohere API key")
+
+            if len(error_messages) >= 1:
+                error_message = "Please " + ", ".join(error_messages[:-1])
+                if len(error_messages) > 1:
+                    error_message += ", and " + error_messages[-1]
+                else:
+                    error_message += error_messages[-1]
+                error_message += "."
+                st.warning(f"Errors: {error_message}")
+                return
+
+            # 1. Save uploaded files to temp directory
+            save_uploaded_files()
+
+            # 2. Load documents
+            documents = langchain_document_loader()
+
+            # 3. Split documents to chunks
+            chunks = split_documents_to_chunks(documents)
+            
+            # 4. Create embeddings
+            embeddings = select_embeddings_model()
+
+            # 5. Create vectorstore
+            persist_directory = (
+                LOCAL_VECTOR_STORE_DIR.as_posix()
+                + "/"
+                + st.session_state.vector_store_name
+            )
+
+            try:
+                st.session_state.vector_store = Chroma.from_documents(
+                    documents=chunks,
+                    embedding=embeddings,
+                    persist_directory=persist_directory,
+                )
+                st.info(
+                    f"Vectorstore **{st.session_state.vector_store_name}** created successfully."
+                )
+
+                # 6. Create retriever
+                st.session_state.retriever = create_retriever(
+                    vector_store=st.session_state.vector_store,
+                    embeddings=embeddings,
+                    retriever_type=st.session_state.retriever_type,
+                    base_retriever_search_type="similarity",
+                    base_retriever_k=16,
+                    compression_retriever_k=20,
+                    cohere_api_key=st.session_state.cohere_api_key,
+                    cohere_model="rerank-multilingual-v2.0",
+                    cohere_top_n=10,
+                )
+
+                # 7. Create memory and ConversationalRetrievalChain
+                st.session_state.chain, st.session_state.memory = create_ConversationalRetrievalChain(
+                    retriever=st.session_state.retriever,
+                    chain_type="stuff",
+                    language=st.session_state.assistant_language,
+                )
+
+                # 8. Clear chat history
+                clear_chat_history()
+
+            except Exception as e:
+                st.error(str(e))
+
+        except Exception as error:
+            st.error(f"An error occurred: {str(error)}")
+        finally:
+            # Clean up temp files
+            delete_temp_files()
         # Check inputs
         error_messages = []
         if (
@@ -621,7 +737,7 @@ def chain_RAG_blocks():
             st.session_state.error_message = ""
             try:
                 # 1. Delete old temp files
-                delte_temp_files()
+                delete_temp_files()
 
                 # 2. Upload selected documents to temp directory
                 if st.session_state.uploaded_file_list is not None:
@@ -701,31 +817,23 @@ def chain_RAG_blocks():
 ####################################################################
 
 
-def create_memory(model_name="gpt-3.5-turbo", memory_max_token=None):
-    """Creates a ConversationSummaryBufferMemory for gpt-3.5-turbo
+def create_memory(model_name="gpt-4.1", memory_max_token=None):
+    """Creates a ConversationSummaryBufferMemory for gpt-4.1
     Creates a ConversationBufferMemory for the other models"""
 
-    if model_name == "gpt-3.5-turbo":
-        if memory_max_token is None:
-            memory_max_token = 1024  # max_tokens for 'gpt-3.5-turbo' = 4096
+    if model_name == "gpt-4.1":
         memory = ConversationSummaryBufferMemory(
+            llm=ChatOpenAI(temperature=0, model_name=model_name),
             max_token_limit=memory_max_token,
-            llm=ChatOpenAI(
-                model_name="gpt-3.5-turbo",
-                openai_api_key=st.session_state.openai_api_key,
-                temperature=0.1,
-            ),
-            return_messages=True,
             memory_key="chat_history",
+            return_messages=True,
             output_key="answer",
-            input_key="question",
         )
     else:
         memory = ConversationBufferMemory(
-            return_messages=True,
             memory_key="chat_history",
+            return_messages=True,
             output_key="answer",
-            input_key="question",
         )
     return memory
 
@@ -766,10 +874,40 @@ def create_ConversationalRetrievalChain(
     This query is then sent to the retriever, which fetches relevant documents (context)
     and passes them along with the standalone question and chat history to an LLM to answer.
     """
+    
+    # Create the LLM based on provider
+    if st.session_state.LLM_provider == ":rainbow[**OpenAI**]":
+        llm = ChatOpenAI(
+            model_name=st.session_state.selected_model,
+            temperature=st.session_state.temperature,
+            api_key=st.session_state.openai_api_key,
+        )
+    elif st.session_state.LLM_provider == "**Google Generative AI**":
+        llm = ChatGoogleGenerativeAI(
+            model=st.session_state.selected_model,
+            temperature=st.session_state.temperature,
+            google_api_key=st.session_state.google_api_key,
+        )
+    else:  # HuggingFace
+        llm = HuggingFaceHub(
+            repo_id=st.session_state.selected_model,
+            huggingfacehub_api_token=st.session_state.hf_api_key,
+        )
 
-    # 1. Define the standalone_question prompt.
-    # Pass the follow-up question along with the chat history to the `condense_question_llm`
-    # which rephrases the question and generates a standalone question.
+    # Create memory
+    memory = create_memory(st.session_state.selected_model)
+
+    # Create the chain
+    chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        chain_type=chain_type,
+        retriever=retriever,
+        memory=memory,
+        return_source_documents=True,
+        get_chat_history=lambda h: h,
+    )
+
+    return chain, memory
 
     condense_question_prompt = PromptTemplate(
         input_variables=["chat_history", "question"],
@@ -912,7 +1050,26 @@ def get_response_from_LLM(prompt):
         st.warning(e)
 
 
+def get_response_from_LLM(prompt):
+    """Process the user's prompt and get a response from the LLM"""
+    try:
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.chat_message("user").write(prompt)
+
+        with st.chat_message("assistant"):
+            response = st.session_state.chain.invoke({
+                "question": prompt,
+                "chat_history": [(msg["role"], msg["content"]) for msg in st.session_state.messages]
+            })
+            st.write(response["answer"])
+
+        st.session_state.messages.append({"role": "assistant", "content": response["answer"]})
+
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
+
 def chatbot():
+    """Main chatbot interface"""
     sidebar_and_documentChooser()
     st.divider()
     col1, col2 = st.columns([7, 3])
