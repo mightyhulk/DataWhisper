@@ -5,8 +5,6 @@ import glob
 import warnings
 import streamlit as st
 from pathlib import Path
-from tkinter import filedialog
-import tkinter as tk
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
