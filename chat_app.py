@@ -141,7 +141,7 @@ LOCAL_VECTOR_STORE_DIR = Path(__file__).resolve().parent.joinpath("data", "vecto
 TMP_DIR.mkdir(parents=True, exist_ok=True)
 LOCAL_VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
 
-api_key = os.getenv("OPENAI_API_KEY") or os.getenv("openai_api_key") or ""
+api_key = os.getenv("OPENAI_API_KEYS") or os.getenv("openai_api_keys") or ""
 google_api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("google_api_key") or ""
 hf_api_key = os.getenv("HF_API_KEY") or os.getenv("hf_api_key") or ""
 
@@ -333,9 +333,9 @@ def sidebar_and_documentChooser():
         )
 
     # Tabbed Pane
-    tab_new_vectorstore, tab_open_vectorstore = st.tabs(
-        ["Create a new Vectorstore", "Open a saved Vectorstore"]
-    )
+
+    tab_new_vectorstore, = st.tabs(["Create a new Vectorstore"])
+
     with tab_new_vectorstore:
         st.session_state.uploaded_file_list = st.file_uploader(
             label="**Select documents**",
@@ -355,55 +355,6 @@ def sidebar_and_documentChooser():
         except:
             pass
 
-    with tab_open_vectorstore:
-        st.write("Please select a Vectorstore:")
-        st.session_state.selected_vectorstore_name = st.text_input(
-            "Enter the path or name of an existing Vectorstore"
-        )
-
-        if st.button("Load Vectorstore"):
-            selected_vectorstore_path = st.session_state.selected_vectorstore_name
-
-            if not selected_vectorstore_path:
-                st.info("Please enter a valid path.")
-            else:
-                with st.spinner("Loading vectorstore..."):
-                    try:
-                        embeddings = select_embeddings_model()
-                        if embeddings is None:
-                            st.error("No embeddings selected.")
-                            st.stop()
-                        st.session_state.vector_store = Chroma(
-                            embedding_function=embeddings,
-                            persist_directory=selected_vectorstore_path,
-                        )
-
-                        # Create retriever
-                        st.session_state.retriever = create_retriever(
-                            vector_store=st.session_state.vector_store,
-                            embeddings=embeddings,
-                            retriever_type=st.session_state.retriever_type,
-                            base_retriever_search_type="similarity",
-                            base_retriever_k=16,
-                            compression_retriever_k=20,
-                            cohere_api_key=st.session_state.cohere_api_key,
-                            cohere_model="rerank-multilingual-v2.0",
-                            cohere_top_n=10,
-                        )
-
-                        # Create agent executor
-                        st.session_state.agent_executor = create_agent_executor(
-                            retriever=st.session_state.retriever,
-                            language=st.session_state.assistant_language,
-                        )
-
-                        clear_chat_history()
-                        st.success(
-                            f"**{st.session_state.selected_vectorstore_name}** loaded successfully."
-                        )
-
-                    except Exception as e:
-                        st.error(f"Error loading vectorstore: {e}")
 
 
 # ------------------------------

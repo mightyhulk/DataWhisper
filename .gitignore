@@ -53,5 +53,8 @@ instance.py
 
 # other unused files:
 reference/
+ref_working/
+ref_not_working/
 test_import.py
 pointers.md
+
