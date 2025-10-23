@@ -1,7 +1,7 @@
 # Python virtual environment
 datawhisper_venv/
 data_venv/
-venv/
+*venv/
 env/
 .env/
 .env
@@ -49,3 +49,9 @@ logs/
 *.local
 local_settings.py
 instance.py
+
+
+# other unused files:
+reference/
+test_import.py
+pointers.md
